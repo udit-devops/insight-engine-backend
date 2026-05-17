@@ -99,4 +99,24 @@ def cosing_similarity(vec1 , vec2):
     solvec = dot_prdct / (magni1 * magni2)
     return solvec
 
+async def retrieve_chunks(question,embeddings):
+    try:
+        store=[]
+        response = genai.content_retrichunk(
+                model = "gemini-embedding-2",
+                content = question 
+            )
+        question_embedding = response["embedding"]
 
+        for item in embeddings:
+            score = cosing_similarity(question_embedding, item["embedding"])
+            store.append({
+                "chunk": item["chunk"],
+                "score": score
+            })
+            return store
+    except Exception as e:
+        print(e)
+                
+
+  
