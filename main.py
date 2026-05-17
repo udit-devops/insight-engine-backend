@@ -7,6 +7,7 @@ from io import BytesIO
 import os 
 import google.generativeai as genai
 from dotenv import load_dotenv
+import numpy as np
 
 app = FastAPI()
 
@@ -90,3 +91,12 @@ async def generate_embeddings(chunks):
             return results
         except Exception as e:
             print(e)
+
+def cosing_similarity(vec1 , vec2):
+    dot_prdct = np.dot(vec1,vec2)
+    magni1 = np.linalg.norm(vec1)
+    magni2 = np.linalg.norm(vec2)
+    solvec = dot_prdct / (magni1 * magni2)
+    return solvec
+
+
