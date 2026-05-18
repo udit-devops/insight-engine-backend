@@ -114,6 +114,7 @@ async def retrieve_chunks(question,embeddings):
                 "chunk": item["chunk"],
                 "score": score
             })
+        store = sorted(store, key=lambda x: x["score"], reverse=True)
         return store
     except Exception as e:
         print(e)
