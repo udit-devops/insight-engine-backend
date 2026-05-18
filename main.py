@@ -10,7 +10,7 @@ from dotenv import load_dotenv
 import numpy as np
 
 app = FastAPI()
-
+DOCUMENT_EMBEDDINGS = []
 load_dotenv()
 GEMINI_API_KEY = os.getenv("GEMINI_API_KEY")
 genai.configure(api_key=GEMINI_API_KEY)
@@ -23,9 +23,14 @@ class AskRequest(BaseModel):
 
 
 @app.post("/ask")
-def ragask(request:AskRequest):
+async def ragask(request:AskRequest):
+    question = request.question
+    top_chunks = await retrieve_chunks(question, DOCUMENT_EMBEDDINGS)
+    context = ""
+    for item in top_chunks:
+        context += item["chunk"] + "\n"
     return {"answer": f"you asked: {request.question}",
-             "chunks":[],
+             "chunks": top_chunks,
               "latency":None,
               "score":None
             }
@@ -43,7 +48,9 @@ def chunk_text(text):
         
         start = end - overlap
     return chunks
+
 @app.post("/upload")
+
 async def upload_file(file:UploadFile = File(...)):
     content = await file.read()
     text = ""
@@ -62,6 +69,8 @@ async def upload_file(file:UploadFile = File(...)):
 
     chunks = chunk_text(text)
     embeddings = await generate_embeddings(chunks)
+    global DOCUMENT_EMBEDDINGS 
+    DOCUMENT_EMBEDDINGS = embeddings
     return {
             "filename":file.filename,
             "num_chunks": len(chunks),
