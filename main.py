@@ -23,16 +23,29 @@ class AskRequest(BaseModel):
 
 
 @app.post("/ask")
+
 async def ragask(request:AskRequest):
+    if not DOCUMENT_EMBEDDINGS:
+      return {"answer": "No document uploaded yet"}
     question = request.question
     top_chunks = await retrieve_chunks(question, DOCUMENT_EMBEDDINGS)
     context = ""
     for item in top_chunks:
         context += item["chunk"] + "\n"
-    return {"answer": f"you asked: {request.question}",
+
+    prompt = f"""
+    Answer ONLY using the provided context. 
+    context:
+    {context}
+    question:{question} """
+    model = genai.GenerativeModel("gemini-2.5-flash")
+    response = model.generate_content(prompt)
+    answer = response.text
+                        
+    return {"answer": answer,
              "chunks": top_chunks,
               "latency":None,
-              "score":None
+              "score":top_chunks[0]["score"] if top_chunks else None
             }
 
 def chunk_text(text):
@@ -71,12 +84,14 @@ async def upload_file(file:UploadFile = File(...)):
     embeddings = await generate_embeddings(chunks)
     global DOCUMENT_EMBEDDINGS 
     DOCUMENT_EMBEDDINGS = embeddings
+    print(len(DOCUMENT_EMBEDDINGS))
+    print(len(DOCUMENT_EMBEDDINGS[0]["embedding"]))
     return {
             "filename":file.filename,
             "num_chunks": len(chunks),
-            "chunks" : chunks,
+            
             "embeddings_created": len(embeddings),
-            "first_embedding_dimensions": len(embeddings[0] ["embedding"]),
+            "first_embedding_dimensions": len(embeddings[0] ["embedding"]) if embeddings else 0,
             
             }
 async def generate_embeddings(chunks):
@@ -86,7 +101,7 @@ async def generate_embeddings(chunks):
                 
                 response = genai.embed_content(
                     
-                    model = "gemini-embedding-2",
+                    model = "models/gemini-embedding-001",
                     content = chunk
                 )
                 
@@ -100,25 +115,27 @@ async def generate_embeddings(chunks):
             return results
         except Exception as e:
             print(e)
+            return []
 
-def cosing_similarity(vec1 , vec2):
+def cosine_similarity(vec1 , vec2):
     dot_prdct = np.dot(vec1,vec2)
     magni1 = np.linalg.norm(vec1)
     magni2 = np.linalg.norm(vec2)
-    solvec = dot_prdct / (magni1 * magni2)
-    return solvec
+    if magni1 == 0 or magni2 == 0:
+        return 0
+    return dot_prdct / (magni1 * magni2)
 
 async def retrieve_chunks(question,embeddings):
     try:
         store=[]
         response = genai.embed_content(
-                model = "gemini-embedding-2",
+                model = "models/gemini-embedding-001",
                 content = question 
             )
         question_embedding = response["embedding"]
 
         for item in embeddings:
-            score = cosing_similarity(question_embedding, item["embedding"])
+            score = cosine_similarity(question_embedding, item["embedding"])
             store.append({
                 "chunk": item["chunk"],
                 "score": score
@@ -130,6 +147,7 @@ async def retrieve_chunks(question,embeddings):
         
     except Exception as e:
         print(e)
+        return []
                 
 
   
