@@ -1,5 +1,5 @@
 import os
-
+import time
 from fastapi import FastAPI, File, UploadFile
 from PyPDF2 import PdfReader
 from pydantic import BaseModel
@@ -14,6 +14,15 @@ DOCUMENT_EMBEDDINGS = []
 load_dotenv()
 GEMINI_API_KEY = os.getenv("GEMINI_API_KEY")
 genai.configure(api_key=GEMINI_API_KEY)
+
+def log_query(question,answer,chunks,latency):
+    log={
+    "question":question,
+    "answer":answer,
+    "chunks":chunks,
+    "latency":latency,
+    }
+
 @app.get("/health")
 def health_check():
     return {"status": "ok"}
@@ -25,6 +34,7 @@ class AskRequest(BaseModel):
 @app.post("/ask")
 
 async def ragask(request:AskRequest):
+    start_time = time.time()
     if not DOCUMENT_EMBEDDINGS:
       return {"answer": "No document uploaded yet"}
     question = request.question
@@ -44,7 +54,7 @@ async def ragask(request:AskRequest):
                         
     return {"answer": answer,
              "chunks": top_chunks,
-              "latency":None,
+              "latency": time.time() - start_time,
               "score":top_chunks[0]["score"] if top_chunks else None
             }
 
