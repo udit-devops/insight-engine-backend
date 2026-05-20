@@ -4,10 +4,10 @@ from fastapi import FastAPI, File, UploadFile
 from PyPDF2 import PdfReader
 from pydantic import BaseModel
 from io import BytesIO
-import os 
 import google.generativeai as genai
 from dotenv import load_dotenv
 import numpy as np
+import json
 
 app = FastAPI()
 DOCUMENT_EMBEDDINGS = []
@@ -22,7 +22,11 @@ def log_query(question,answer,chunks,latency):
     "chunks":chunks,
     "latency":latency,
     }
-
+    with open("logs.json","r") as file:
+        logs = json.load(file)
+    logs.append(log)
+    with open("logs.json","w") as file:
+        json.dump(logs,file,indent=4)
 @app.get("/health")
 def health_check():
     return {"status": "ok"}
@@ -39,6 +43,8 @@ async def ragask(request:AskRequest):
       return {"answer": "No document uploaded yet"}
     question = request.question
     top_chunks = await retrieve_chunks(question, DOCUMENT_EMBEDDINGS)
+    if not top_chunks:
+        return {"answer": "No relevant information found in the document"}
     context = ""
     for item in top_chunks:
         context += item["chunk"] + "\n"
@@ -51,10 +57,11 @@ async def ragask(request:AskRequest):
     model = genai.GenerativeModel("gemini-2.5-flash")
     response = model.generate_content(prompt)
     answer = response.text
-                        
+    latency = time.time() - start_time
+    log_query(question,answer,top_chunks,latency)                 
     return {"answer": answer,
              "chunks": top_chunks,
-              "latency": time.time() - start_time,
+              "latency": latency,
               "score":top_chunks[0]["score"] if top_chunks else None
             }
 
@@ -95,7 +102,10 @@ async def upload_file(file:UploadFile = File(...)):
     global DOCUMENT_EMBEDDINGS 
     DOCUMENT_EMBEDDINGS = embeddings
     print(len(DOCUMENT_EMBEDDINGS))
-    print(len(DOCUMENT_EMBEDDINGS[0]["embedding"]))
+    if DOCUMENT_EMBEDDINGS:
+        print(len(DOCUMENT_EMBEDDINGS[0]["embedding"]))
+
+    
     return {
             "filename":file.filename,
             "num_chunks": len(chunks),
