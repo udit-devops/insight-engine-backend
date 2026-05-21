@@ -60,12 +60,14 @@ async def ragask(request:AskRequest):
     model = genai.GenerativeModel("gemini-2.5-flash")
     response = model.generate_content(prompt)
     answer = response.text
+    evaluation_score = await evaluate_answer(answer, top_chunks)
     latency = time.time() - start_time
     log_query(question,answer,top_chunks,latency)                 
     return {"answer": answer,
              "chunks": top_chunks,
               "latency": latency,
-              "score":top_chunks[0]["score"] if top_chunks else None
+              "score":top_chunks[0]["score"] if top_chunks else None,
+              "eval": evaluation_score
             }
 
 def chunk_text(text):
@@ -187,6 +189,20 @@ async def retrieve_chunks(question):
         print(e)
         return []
 
-async def
+async def evaluate_answer(answer,top_chunks):
+    context = ""
+    for item in top_chunks:
+        context += item["chunk"] + "\n"
+    grounded = answer.lower() in context.lower() 
+    relevance_score = 0
+    if grounded:
+        relevance_score = 1.0
+    else:
+        relevance_score = 0.5
+    return {
+        "grounded":grounded,
+        "relevance_score":relevance_score
+    }
+
 
   
