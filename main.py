@@ -193,7 +193,12 @@ async def evaluate_answer(answer,top_chunks):
     context = ""
     for item in top_chunks:
         context += item["chunk"] + "\n"
-    grounded = answer.lower() in context.lower() 
+    match_words= 0;
+    for word in answer.split():
+        if word in context:
+            match_words += 1
+
+    grounded = match_words > 3
     relevance_score = 0
     if grounded:
         relevance_score = 1.0

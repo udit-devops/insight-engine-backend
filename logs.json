@@ -1,1 +1,40 @@
-[]
+[
+    {
+        "question": "what are the component of mapreduce architecture",
+        "answer": "\u2022 Client\n\u2022 HDFS\n\u2022 Resource Manager\n\u2022 Node Manager\n\u2022 Application Master\n\u2022 Mapper\n\u2022 Reducer",
+        "chunks": [
+            {
+                "chunk": "ajor components of MapReduce architecture  \n\u2022 Client  \n\u2022 HDFS  \n\u2022 Resource Manager  \n\u2022 Node Manager  \n\u2022 Application Master  \n\u2022 Mapper  \n\u2022 Reducer  \n \n3. Explain the function of the Map operation in MapReduce  \nThe map operation is stateless, meaning each input record is processed independently without \ndependency on other records. This function is responsible for data filtering and transformation, \nmaking it an essential step in distributed data processing.  \nThe Map function processes input dat",
+                "score": 0.35836684703826904
+            },
+            {
+                "chunk": "ach mapper works on a small portion of data  \n\u2022 Enables parallel processing   \n\u2022 Example: Word count \u2192 emits (word, 1)   \nii. Shuffle and Sort Phase  \n\u2022 Intermediate stage between Map and Reduce  \n\u2022 Transfers mapper output to reducers  \n\u2022 Groups data based on same keys   \n\u2022 Ensures same key goes to same reducer  \n\u2022 Sorts data before sending to reducer  \niii. Reduce Phase  \n\u2022 Final stage of MapReduce  \n\u2022 Receives grouped key -value pairs  \n\u2022 Performs aggregation or computation   \n\u2022 Produces final",
+                "score": 0.5003218650817871
+            },
+            {
+                "chunk": "Assignment 3  \nShort Answer Q uestion  \n \n  \n1. Define Big Data Processing Models  \nBig Data Processing Models are approaches used to process and analyze large datasets using \ndistributed and parallel computing.  \nThese models are designed to efficiently handle the volume, velocity, and variety of big data . \n They ensure scalability, fault tolerance, and efficient data handling.  \n \n2. List the major components of MapReduce architecture  \n\u2022 Client  \n\u2022 HDFS  \n\u2022 Resource Manager  \n\u2022 Node Manager ",
+                "score": 0.550918459892273
+            }
+        ],
+        "latency": 2.114621877670288
+    },
+    {
+        "question": "give 5 questions of 2 marks 2 question of 10 marks",
+        "answer": "**2 Mark Questions:**\n\n1.  What is the CIA Triad in cybersecurity? Define each component briefly.\n2.  Define vulnerability, threat, and exploit with examples.\n3.  Define a Salami Attack with a real-world example.\n4.  What is the TOCTTOU vulnerability?\n5.  What is OWASP?\n\n**10 Mark Questions:**\n\n1.  What is Defense in Depth? Explain all layers of the Defense in Depth strategy in detail, providing examples of security controls implemented at each layer.\n2.  Explain OWASP Top 10 (any five) and discuss how web application security considerations address them.",
+        "chunks": [
+            {
+                "chunk": "  \n \n \nFinal Exam Question Bank : \n2 Mark Question s: \n1. What is the CIA Triad in cybersecurity? Define each component briefly.  \n2. Define vulnerability, threat, and exploit with examples  \n3. Define a Salami Attack with a real -world example  \n4. What is the TOCTTOU vulnerability?  \n5. What is OWASP?  \n6. Differentiate between Phishing and Pharming.  \n7. What is OAuth 2.0 used for?  \n8. What is WEP in Wi -Fi security?  \n9. What is Clickjacking?  \n10. Differentiate between WPA and WPA2.  \n11. ",
+                "score": 0.6803959608078003
+            },
+            {
+                "chunk": "Account Harvesting, Web Bugs . \n39. Explain Wireless LAN security: WEP, WPA, WPA2 . \n40. Discuss Mobile Device Security: Threats, Device Security mechanisms . \n \n \n \n10 Mark Questions:  \n \n41. What is Defense in Depth? Explain all layers of the Defense in Depth strategy in \ndetail, providing examples of security controls implemented at each layer  \n42.  Explain the various types of vulnerabilities in information systems. Discuss the \nvulnerability management lifecycle in detail and explain how o",
+                "score": 0.7433295845985413
+            },
+            {
+                "chunk": "hanisms for Memory Protection \nand File Protection. How do these mechanisms work together to enforce process \nisolation?  \n45.   Explain OWASP Top 10 (any five) and discuss how web application security \nconsiderations address them.  \n46.  Explain Session Management and Session Hijacking. Also discuss how Cookies, \nSSL, HTTPS, and SSH help in securing sessions.  \n47.  Explain Wireless LAN security: WEP, WPA, WPA2, and WPA3 (briefly). Also \ndiscuss IEEE 802.11i and VPN security for wireless.  \n48.",
+                "score": 0.7900951504707336
+            }
+        ],
+        "latency": 4.996572732925415
+    }
+]
