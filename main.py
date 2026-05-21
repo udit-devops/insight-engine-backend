@@ -13,7 +13,7 @@ import chromadb
 app = FastAPI()
 client = chromadb.PersistentClient(path="./chroma_db")
 collection = client.get_or_create_collection("documents")
-DOCUMENT_EMBEDDINGS = []
+
 load_dotenv()
 GEMINI_API_KEY = os.getenv("GEMINI_API_KEY")
 genai.configure(api_key=GEMINI_API_KEY)
@@ -42,10 +42,10 @@ class AskRequest(BaseModel):
 
 async def ragask(request:AskRequest):
     start_time = time.time()
-    if not DOCUMENT_EMBEDDINGS:
+    if collection.count()==0:
       return {"answer": "No document uploaded yet"}
     question = request.question
-    top_chunks = await retrieve_chunks(question, DOCUMENT_EMBEDDINGS)
+    top_chunks = await retrieve_chunks(question)
     if not top_chunks:
         return {"answer": "No relevant information found in the document"}
     context = ""
@@ -102,11 +102,20 @@ async def upload_file(file:UploadFile = File(...)):
 
     chunks = chunk_text(text)
     embeddings = await generate_embeddings(chunks)
-    global DOCUMENT_EMBEDDINGS 
-    DOCUMENT_EMBEDDINGS = embeddings
-    print(len(DOCUMENT_EMBEDDINGS))
-    if DOCUMENT_EMBEDDINGS:
-        print(len(DOCUMENT_EMBEDDINGS[0]["embedding"]))
+    ids=[]
+    documents=[]
+    vectors=[]
+    for i,item in enumerate(embeddings):
+        ids.append(f"chunk_{i}")
+        documents.append(item["chunk"])
+        vectors.append(item["embedding"])
+        
+    collection.add(
+        ids=ids,
+        documents=documents,
+        embeddings=vectors
+    )
+   
 
     
     return {
@@ -148,25 +157,27 @@ def cosine_similarity(vec1 , vec2):
         return 0
     return dot_prdct / (magni1 * magni2)
 
-async def retrieve_chunks(question,embeddings):
+async def retrieve_chunks(question):
     try:
-        store=[]
+        
         response = genai.embed_content(
                 model = "models/gemini-embedding-001",
                 content = question 
             )
         question_embedding = response["embedding"]
 
-        for item in embeddings:
-            score = cosine_similarity(question_embedding, item["embedding"])
-            store.append({
-                "chunk": item["chunk"],
-                "score": score
+        results = collection.query(
+            query_embeddings=[question_embedding],
+            n_results=3
+        )
+
+        top_chunks = []
+        for i in range(len(results["documents"][0])):
+            top_chunks.append({
+                "chunk": results["documents"][0][i],
+                "score": results["distances"][0][i],
             })
-        store = sorted(store, key=lambda x: x["score"], reverse=True)
-        top_chunks = store[:3]
         return top_chunks
-        
         
     except Exception as e:
         print(e)
