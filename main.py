@@ -8,8 +8,11 @@ import google.generativeai as genai
 from dotenv import load_dotenv
 import numpy as np
 import json
+import chromadb
 
 app = FastAPI()
+client = chromadb.PersistentClient(path="./chroma_db")
+collection = client.get_or_create_collection("documents")
 DOCUMENT_EMBEDDINGS = []
 load_dotenv()
 GEMINI_API_KEY = os.getenv("GEMINI_API_KEY")
