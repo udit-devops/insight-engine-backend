@@ -66,7 +66,7 @@ async def ragask(request:AskRequest):
     return {"answer": answer,
              "chunks": top_chunks,
               "latency": latency,
-              "score":top_chunks[0]["score"] if top_chunks else None,
+              "retrieval_distance":top_chunks[0]["distance"] if top_chunks else None,
               "eval": evaluation_score
             }
 
@@ -181,7 +181,7 @@ async def retrieve_chunks(question):
         for i in range(len(results["documents"][0])):
             top_chunks.append({
                 "chunk": results["documents"][0][i],
-                "score": results["distances"][0][i],
+                "distance": results["distances"][0][i],
             })
         return top_chunks
         
