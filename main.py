@@ -99,6 +99,8 @@ async def upload_file(file:UploadFile = File(...)):
             page_text = page.extract_text()
             if page_text:
                 text+=page_text
+    if not text.strip():
+        return {"error":"no text found in the document"}
 
     chunks = chunk_text(text)
     embeddings = await generate_embeddings(chunks)
@@ -106,10 +108,12 @@ async def upload_file(file:UploadFile = File(...)):
     documents=[]
     vectors=[]
     for i,item in enumerate(embeddings):
-        ids.append(f"chunk_{i}")
+        ids.append(f"{file.filename}_chunk_{i}")
         documents.append(item["chunk"])
         vectors.append(item["embedding"])
-        
+    collection.delete(
+        ids= ids
+    ) 
     collection.add(
         ids=ids,
         documents=documents,
@@ -182,6 +186,7 @@ async def retrieve_chunks(question):
     except Exception as e:
         print(e)
         return []
-                
+
+async def
 
   
