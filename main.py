@@ -9,8 +9,12 @@ from dotenv import load_dotenv
 import numpy as np
 import json
 import chromadb
+from opentelemetry import trace
+from opentelemetry.sdk.trace import TracerProvider
 
 app = FastAPI()
+trace.set_tracer_provider(TracerProvider())
+tracer = trace.get_tracer(__name__)
 client = chromadb.PersistentClient(path="./chroma_db")
 collection = client.get_or_create_collection("documents")
 
@@ -18,15 +22,21 @@ load_dotenv()
 GEMINI_API_KEY = os.getenv("GEMINI_API_KEY")
 genai.configure(api_key=GEMINI_API_KEY)
 
-def log_query(question,answer,chunks,latency):
-    log={
+def log_query(question,answer,chunks,latency,retrieval_distance,eval_score):
+    log={ 
     "question":question,
     "answer":answer,
     "chunks":chunks,
     "latency":latency,
+    "retrieval_distance":retrieval_distance,
+    "eval": eval_score
     }
-    with open("logs.json","r") as file:
-        logs = json.load(file)
+    try:
+      with open("logs.json","r") as file:
+            logs = json.load(file)
+    except:
+        logs = []
+    
     logs.append(log)
     with open("logs.json","w") as file:
         json.dump(logs,file,indent=4)
@@ -41,34 +51,41 @@ class AskRequest(BaseModel):
 @app.post("/ask")
 
 async def ragask(request:AskRequest):
-    start_time = time.time()
-    if collection.count()==0:
-      return {"answer": "No document uploaded yet"}
-    question = request.question
-    top_chunks = await retrieve_chunks(question)
-    if not top_chunks:
-        return {"answer": "No relevant information found in the document"}
-    context = ""
-    for item in top_chunks:
-        context += item["chunk"] + "\n"
+    with tracer.start_as_current_span("ask_route"):
+        start_time = time.time()
+        if collection.count()==0:
+         return {"answer": "No document uploaded yet"}
+        question = request.question
+        top_chunks = await retrieve_chunks(question)
+        if not top_chunks:
+         return {"answer": "No relevant information found in the document"}
+        context = ""
+        for item in top_chunks:
+            context += item["chunk"] + "\n"
 
-    prompt = f"""
-    Answer ONLY using the provided context. 
-    context:
-    {context}
-    question:{question} """
-    model = genai.GenerativeModel("gemini-2.5-flash")
-    response = model.generate_content(prompt)
-    answer = response.text
-    evaluation_score = await evaluate_answer(answer, top_chunks)
-    latency = time.time() - start_time
-    log_query(question,answer,top_chunks,latency)                 
-    return {"answer": answer,
+        prompt = f"""
+        Answer ONLY using the provided context. 
+        context:
+        {context}
+        question:{question} """
+        with tracer.start_as_current_span("generate_answer"):
+
+         model = genai.GenerativeModel("gemini-2.5-flash")
+         response = model.generate_content(prompt)
+         answer = response.text
+    
+
+        evaluation_score = await evaluate_answer(answer, top_chunks)
+        latency = time.time() - start_time
+        log_query(question,answer,top_chunks,latency,top_chunks[0]["distance"] if top_chunks else None,evaluation_score)                 
+        return {"answer": answer,
              "chunks": top_chunks,
               "latency": latency,
               "retrieval_distance":top_chunks[0]["distance"] if top_chunks else None,
               "eval": evaluation_score
             }
+
+    
 
 def chunk_text(text):
     chunk_size = 500
@@ -105,6 +122,8 @@ async def upload_file(file:UploadFile = File(...)):
         return {"error":"no text found in the document"}
 
     chunks = chunk_text(text)
+    if not chunks:
+        return {"error":"no text found in the file"}
     embeddings = await generate_embeddings(chunks)
     ids=[]
     documents=[]
@@ -164,26 +183,29 @@ def cosine_similarity(vec1 , vec2):
     return dot_prdct / (magni1 * magni2)
 
 async def retrieve_chunks(question):
+    
     try:
+        with tracer.start_as_current_span("retrieve_chunks"):
+
         
-        response = genai.embed_content(
+          response = genai.embed_content(
                 model = "models/gemini-embedding-001",
                 content = question 
             )
-        question_embedding = response["embedding"]
+          question_embedding = response["embedding"]
 
-        results = collection.query(
+          results = collection.query(
             query_embeddings=[question_embedding],
             n_results=3
         )
 
-        top_chunks = []
-        for i in range(len(results["documents"][0])):
+          top_chunks = []
+          for i in range(len(results["documents"][0])):
             top_chunks.append({
                 "chunk": results["documents"][0][i],
                 "distance": results["distances"][0][i],
             })
-        return top_chunks
+          return top_chunks
         
     except Exception as e:
         print(e)
