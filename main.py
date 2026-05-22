@@ -51,7 +51,7 @@ class AskRequest(BaseModel):
 @app.post("/ask")
 
 async def ragask(request:AskRequest):
-    with tracer.start_as_current_span("ask_route"):
+    with tracer.start_as_current_span("ask_route") as span:
         start_time = time.time()
         if collection.count()==0:
          return {"answer": "No document uploaded yet"}
@@ -77,6 +77,12 @@ async def ragask(request:AskRequest):
 
         evaluation_score = await evaluate_answer(answer, top_chunks)
         latency = time.time() - start_time
+        
+        span.set_attribute("question", question)
+        span.set_attribute("retrieved_chunks", len(top_chunks))
+        span.set_attribute("retrieval_distance", top_chunks[0]["distance"])
+        span.set_attribute("latency", latency)
+        span.set_attribute("grounded", evaluation_score["grounded"])
         log_query(question,answer,top_chunks,latency,top_chunks[0]["distance"] if top_chunks else None,evaluation_score)                 
         return {"answer": answer,
              "chunks": top_chunks,
@@ -108,7 +114,13 @@ async def upload_file(file:UploadFile = File(...)):
     text = ""
     
     if file.filename.endswith("txt"):
+      try:
         text = content.decode("utf-8")
+      except:
+        text = content.decode("cp1252")
+      text = text.replace("\xa0", " ")
+      text = " ".join(text.split())
+        
         
     elif file.filename.endswith("pdf"):
         
@@ -118,6 +130,7 @@ async def upload_file(file:UploadFile = File(...)):
             page_text = page.extract_text()
             if page_text:
                 text+=page_text
+        text = " ".join(text.split())
     if not text.strip():
         return {"error":"no text found in the document"}
 
