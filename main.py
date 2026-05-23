@@ -18,7 +18,10 @@ from opentelemetry.sdk.trace import TracerProvider
 app = FastAPI()
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["*"],
+    allow_origins=[
+        "http://localhost:5173",
+        "https://insight-enginee-frontend.vercel.app"
+    ],
     allow_credentials=False,
     allow_methods=["*"],
     allow_headers=["*"],
