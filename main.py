@@ -1,4 +1,5 @@
 import os
+
 import time
 from fastapi import FastAPI, File, UploadFile
 from PyPDF2 import PdfReader
@@ -9,6 +10,8 @@ from dotenv import load_dotenv
 import numpy as np
 import json
 import chromadb
+from opentelemetry.exporter.otlp.proto.http.trace_exporter import OTLPSpanExporter
+from opentelemetry.sdk.trace.export import BatchSpanProcessor
 from opentelemetry import trace
 from opentelemetry.sdk.trace import TracerProvider
 
@@ -19,6 +22,17 @@ client = chromadb.PersistentClient(path="./chroma_db")
 collection = client.get_or_create_collection("documents")
 
 load_dotenv()
+
+otlp_exporter = OTLPSpanExporter(
+    endpoint="https://api.smith.langchain.com/otel/v1/traces",
+    headers ={
+        "x-api-key" : os.getenv("LANGSMITH_API_KEY"),
+        "Langsmith-Project": os.getenv("LANGSMITH_PROJECT", "default")
+    }
+)
+span_processor = BatchSpanProcessor(otlp_exporter)
+trace.get_tracer_provider().add_span_processor(span_processor)
+tracer = trace.get_tracer(__name__)
 GEMINI_API_KEY = os.getenv("GEMINI_API_KEY")
 genai.configure(api_key=GEMINI_API_KEY)
 
@@ -68,11 +82,17 @@ async def ragask(request:AskRequest):
         context:
         {context}
         question:{question} """
-        with tracer.start_as_current_span("generate_answer"):
+        with tracer.start_as_current_span("generate_answer") as llm_span:
+         llm_span.set_attribute("langsmith.span.kind", "LLM")
+         llm_span.set_attribute("gen_ai.system", "Gemini")
+         llm_span.set_attribute("gen_ai.request.model", "gemini-2.5-flash")
+         llm_span.set_attribute("gen_ai.prompt.0.content", prompt)
+         
 
          model = genai.GenerativeModel("gemini-2.5-flash")
          response = model.generate_content(prompt)
          answer = response.text
+         llm_span.set_attribute("gen_ai.completion.0.content", answer)
     
 
         evaluation_score = await evaluate_answer(answer, top_chunks)
@@ -83,6 +103,7 @@ async def ragask(request:AskRequest):
         span.set_attribute("retrieval_distance", top_chunks[0]["distance"])
         span.set_attribute("latency", latency)
         span.set_attribute("grounded", evaluation_score["grounded"])
+        span.set_attribute("relevance_score", evaluation_score["relevance_score"])
         log_query(question,answer,top_chunks,latency,top_chunks[0]["distance"] if top_chunks else None,evaluation_score)                 
         return {"answer": answer,
              "chunks": top_chunks,
@@ -129,8 +150,13 @@ async def upload_file(file:UploadFile = File(...)):
         for page in pdf_reader.pages:
             page_text = page.extract_text()
             if page_text:
-                text+=page_text
+                text+=page_text + "\n"
+        text = text.replace("\\n", " ")
+        text = text.replace("\n", " ")
         text = " ".join(text.split())
+
+    
+        
     if not text.strip():
         return {"error":"no text found in the document"}
 
@@ -145,9 +171,9 @@ async def upload_file(file:UploadFile = File(...)):
         ids.append(f"{file.filename}_chunk_{i}")
         documents.append(item["chunk"])
         vectors.append(item["embedding"])
-    collection.delete(
-        ids= ids
-    ) 
+    existing_ids = collection.get()["ids"]
+    if existing_ids:
+        collection.delete(ids=existing_ids)
     collection.add(
         ids=ids,
         documents=documents,
@@ -198,7 +224,11 @@ def cosine_similarity(vec1 , vec2):
 async def retrieve_chunks(question):
     
     try:
-        with tracer.start_as_current_span("retrieve_chunks"):
+        with tracer.start_as_current_span("retrieve_chunks") as db_span:
+          db_span.set_attribute("langsmith.span.kind", "retriever")
+          db_span.set_attribute("db.system", "chromadb")
+          db_span.set_attribute("input.value", question) 
+          
 
         
           response = genai.embed_content(
@@ -218,6 +248,7 @@ async def retrieve_chunks(question):
                 "chunk": results["documents"][0][i],
                 "distance": results["distances"][0][i],
             })
+          db_span.set_attribute("output.value", str(top_chunks)) 
           return top_chunks
         
     except Exception as e:
