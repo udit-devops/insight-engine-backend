@@ -1,5 +1,5 @@
 import os
-
+from fastapi.middleware.cors import CORSMiddleware
 import time
 from fastapi import FastAPI, File, UploadFile
 from PyPDF2 import PdfReader
@@ -16,6 +16,16 @@ from opentelemetry import trace
 from opentelemetry.sdk.trace import TracerProvider
 
 app = FastAPI()
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=[
+        "http://localhost:5173",
+        # "https://your-frontend-domain.vercel.app"
+    ],
+    allow_credentials=True,
+    allow_methods=["*"],
+    allow_headers=["*"],
+)
 trace.set_tracer_provider(TracerProvider())
 tracer = trace.get_tracer(__name__)
 client = chromadb.PersistentClient(path="./chroma_db")
