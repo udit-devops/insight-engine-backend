@@ -1,4 +1,5 @@
 import os
+import redis
 from fastapi.middleware.cors import CORSMiddleware
 import time
 from fastapi import FastAPI, File, UploadFile
@@ -16,6 +17,11 @@ from opentelemetry import trace
 from opentelemetry.sdk.trace import TracerProvider
 
 app = FastAPI()
+redis_client = redis.Redis(
+    host="localhost",
+    port=6379,
+    decode_responses=True
+)
 app.add_middleware(
     CORSMiddleware,
     allow_origins=[
@@ -80,6 +86,15 @@ async def ragask(request:AskRequest):
         if collection.count()==0:
          return {"answer": "No document uploaded yet"}
         question = request.question
+        cache_key = f"question:{question}"
+
+        cached_answer = redis_client.get(cache_key)
+
+        if cached_answer:
+           return {
+        "answer": cached_answer,
+        "cached": True
+    }
         top_chunks = await retrieve_chunks(question)
         if not top_chunks:
          return {"answer": "No relevant information found in the document"}
@@ -102,6 +117,11 @@ async def ragask(request:AskRequest):
          model = genai.GenerativeModel("gemini-2.5-flash")
          response = model.generate_content(prompt)
          answer = response.text
+         redis_client.setex(
+             cache_key,
+              3600,
+             answer
+            )
          llm_span.set_attribute("gen_ai.completion.0.content", answer)
     
 
@@ -119,7 +139,8 @@ async def ragask(request:AskRequest):
              "chunks": top_chunks,
               "latency": latency,
               "retrieval_distance":top_chunks[0]["distance"] if top_chunks else None,
-              "eval": evaluation_score
+              "eval": evaluation_score,
+              "cached": False,
             }
 
     
