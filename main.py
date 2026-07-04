@@ -88,13 +88,13 @@ async def ragask(request:AskRequest):
         question = request.question
         cache_key = f"question:{question}"
 
-        cached_answer = redis_client.get(cache_key)
+    #     cached_answer = redis_client.get(cache_key)
 
-        if cached_answer:
-           return {
-        "answer": cached_answer,
-        "cached": True
-    }
+    #     if cached_answer:
+    #        return {
+    #     "answer": cached_answer,
+    #     "cached": True
+    # }
         top_chunks = await retrieve_chunks(question)
         if not top_chunks:
          return {"answer": "No relevant information found in the document"}
