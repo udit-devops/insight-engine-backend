@@ -117,11 +117,11 @@ async def ragask(request:AskRequest):
          model = genai.GenerativeModel("gemini-2.5-flash")
          response = model.generate_content(prompt)
          answer = response.text
-         redis_client.setex(
-             cache_key,
-              3600,
-             answer
-            )
+        #  redis_client.setex(
+        #      cache_key,
+        #       3600,
+        #      answer
+        #     )
          llm_span.set_attribute("gen_ai.completion.0.content", answer)
     
 
